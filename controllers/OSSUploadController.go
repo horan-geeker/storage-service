@@ -42,6 +42,6 @@ func OSSUploadWithCDN(w http.ResponseWriter, r *http.Request) {
         log.Println(err.Error())
     }
     io.WriteString(w, response.Json(response.SUCCESS, "success", map[string]interface{}{
-        "url": url,
+        "cdn_url": url,
     }))
 }
