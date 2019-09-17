@@ -20,13 +20,22 @@ type COSUploadResponse struct {
     Code    int    `json:"code"`
     Message string `json:"message"`
     Data struct {
-        AccessUrl string `json:"access_url"`
-        PreviewUrl string `json:"preview_url"`
+        AccessUrl    string `json:"access_url"`
+        PreviewUrl   string `json:"preview_url"`
         ResourcePath string `json:"resource_path"`
-        SourceUrl string `json:"source_url"`
-        Url string `json:"url"`
+        SourceUrl    string `json:"source_url"`
+        Url          string `json:"url"`
     }
 }
+
+var u, _ = url.Parse(config.Config.COS_BUCKET_DOMAIN)
+var b = &cos.BaseURL{BucketURL: u}
+var client = cos.NewClient(b, &http.Client{
+    Transport: &cos.AuthorizationTransport{
+        SecretID:  config.Config.COS_SECRET_ID,
+        SecretKey: config.Config.COS_SECRET_KEY,
+    },
+})
 
 func MD5HashFileName(filename string, fileContent []byte) string {
     hasher := md5.New()
@@ -40,21 +49,13 @@ func MD5HashFileName(filename string, fileContent []byte) string {
 }
 
 func COSUpload(file multipart.File, filename string) (string, error) {
-    u, _ := url.Parse(config.Config.COS_BUCKET_DOMAIN)
-    b := &cos.BaseURL{BucketURL: u}
-    client := cos.NewClient(b, &http.Client{
-        Transport: &cos.AuthorizationTransport{
-            SecretID:  config.Config.COS_SECRET_ID,
-            SecretKey: config.Config.COS_SECRET_KEY,
-        },
-    })
     content, err := ioutil.ReadAll(file)
     if err != nil {
         return "", err
     }
-    fileUrl := config.Config.COS_BUCKET_DIR + "/" + MD5HashFileName(filename, content)
+    fileUri := config.Config.COS_BUCKET_DIR + "/" + MD5HashFileName(filename, content)
     f := strings.NewReader(string(content))
-    httpResponse, err := client.Object.Put(context.Background(), fileUrl, f, nil)
+    httpResponse, err := client.Object.Put(context.Background(), fileUri, f, nil)
     if err != nil {
         return "", err
     }
@@ -66,9 +67,30 @@ func COSUpload(file multipart.File, filename string) (string, error) {
     if uploadResponse.Code != 0 {
         return "", err
     }
+    return fileUri, nil
+}
+
+func COSUploadNormal(file multipart.File, filename string) (string, error) {
+    fileUri, err := COSUpload(file, filename)
+    if err != nil {
+        return "", err
+    }
+    return u.String() + "/" + fileUri, nil
+}
+
+func COSUploadSecure(file multipart.File, filename string) (string, error) {
+    fileUrl, err := COSUpload(file, filename)
     presignedURL, err := client.Object.GetPresignedURL(context.Background(), http.MethodGet, fileUrl, config.Config.COS_SECRET_ID, config.Config.COS_SECRET_KEY, time.Hour, nil)
     if err != nil {
         log.Println(err.Error())
     }
     return presignedURL.String(), nil
+}
+
+func COSUploadWithCDN(file multipart.File, filename string) (string, error) {
+    fileUri, err := COSUpload(file, filename)
+    if err != nil {
+        return "", err
+    }
+    return config.Config.COS_CDN_DOMAIN + "/" + fileUri, nil
 }
