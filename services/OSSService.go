@@ -22,7 +22,7 @@ func OSSUpload(file multipart.File, filename string) (string, error) {
     if err != nil {
         return "", err
     }
-    fileUri := config.Config.COS_BUCKET_DIR + "/" + MD5HashFileName(filename, content)
+    fileUri := config.Config.COS_BUCKET_DIR + "/" + MD5HashFileName(filename, content, "")
     f := strings.NewReader(string(content))
     err = bucket.PutObject(fileUri, f)
     if err != nil {

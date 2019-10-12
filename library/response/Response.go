@@ -9,6 +9,8 @@ const (
     SUCCESS       = 0
     ERROR_PARAM   = 1
     NOT_FIND_DATA = 3
+
+    FILE_URL_DOWNLOAD_ERR = 1001
 )
 
 type responseStruct struct {
@@ -21,6 +23,7 @@ var errorMessageMap = map[int]string{
     SUCCESS:       "请求成功",
     ERROR_PARAM:   "参数错误",
     NOT_FIND_DATA: "未找到数据",
+    FILE_URL_DOWNLOAD_ERR: "文件下载失败",
 }
 
 func Json(status int, message string, data interface{}) string {
@@ -33,6 +36,19 @@ func Json(status int, message string, data interface{}) string {
         Status:  status,
         Message: message,
         Data:    data,
+    }
+    responseStr, err := json.Marshal(response)
+    if err != nil {
+        log.Println(err.Error())
+    }
+    return string(responseStr)
+}
+
+func JsonError(status int) string {
+    response := responseStruct{
+        Status:  status,
+        Message: errorMessageMap[status],
+        Data:    nil,
     }
     responseStr, err := json.Marshal(response)
     if err != nil {

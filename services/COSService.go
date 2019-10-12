@@ -37,23 +37,40 @@ var client = cos.NewClient(b, &http.Client{
     },
 })
 
-func MD5HashFileName(filename string, fileContent []byte) string {
+func MD5HashFileName(filename string, fileContent []byte, fileType string) string {
     hasher := md5.New()
     hasher.Write(fileContent)
     md5String := hex.EncodeToString(hasher.Sum(nil))
-    fileFullName := strings.Split(filename, ".")
-    if len(fileFullName) >= 2 {
-        filename = md5String + "." + fileFullName[len(fileFullName)-1]
+    if len(fileType) == 0 {
+        fileFullName := strings.Split(filename, ".")
+        if len(fileFullName) >= 2 {
+            return md5String + "." + fileFullName[len(fileFullName)-1]
+        }
+    }
+    if len(filename) == 0 {
+        return md5String + "." + fileType
     }
     return filename
 }
 
-func COSUpload(file multipart.File, filename string) (string, error) {
+func COSUpload(file multipart.File, filename string, fileType string) (string, error) {
     content, err := ioutil.ReadAll(file)
     if err != nil {
         return "", err
     }
-    fileUri := config.Config.COS_BUCKET_DIR + "/" + MD5HashFileName(filename, content)
+    return COSUploadFileContent(content, filename, fileType)
+}
+
+func COSUploadFileContentNormal(content []byte, filename string, fileType string) (string, error) {
+    fileUri, err := COSUploadFileContent(content, filename, fileType)
+    if err != nil {
+        return "", err
+    }
+    return u.String() + "/" + fileUri, nil
+}
+
+func COSUploadFileContent(content []byte, filename string, fileType string) (string, error) {
+    fileUri := config.Config.COS_BUCKET_DIR + "/" + MD5HashFileName(filename, content, fileType)
     f := strings.NewReader(string(content))
     httpResponse, err := client.Object.Put(context.Background(), fileUri, f, nil)
     if err != nil {
@@ -70,16 +87,24 @@ func COSUpload(file multipart.File, filename string) (string, error) {
     return fileUri, nil
 }
 
-func COSUploadNormal(file multipart.File, filename string) (string, error) {
-    fileUri, err := COSUpload(file, filename)
+func COSUploadFileContentWithCDN(content []byte, filename string, fileType string) (string, error) {
+    fileUri, err := COSUploadFileContent(content, filename, fileType)
+    if err != nil {
+        return "", err
+    }
+    return config.Config.COS_CDN_DOMAIN + "/" + fileUri, nil
+}
+
+func COSUploadNormal(file multipart.File, filename string, fileType string) (string, error) {
+    fileUri, err := COSUpload(file, filename, fileType)
     if err != nil {
         return "", err
     }
     return u.String() + "/" + fileUri, nil
 }
 
-func COSUploadSecure(file multipart.File, filename string) (string, error) {
-    fileUrl, err := COSUpload(file, filename)
+func COSUploadSecure(file multipart.File, filename string, fileType string) (string, error) {
+    fileUrl, err := COSUpload(file, filename, fileType)
     presignedURL, err := client.Object.GetPresignedURL(context.Background(), http.MethodGet, fileUrl, config.Config.COS_SECRET_ID, config.Config.COS_SECRET_KEY, time.Hour, nil)
     if err != nil {
         log.Println(err.Error())
@@ -87,8 +112,8 @@ func COSUploadSecure(file multipart.File, filename string) (string, error) {
     return presignedURL.String(), nil
 }
 
-func COSUploadWithCDN(file multipart.File, filename string) (string, error) {
-    fileUri, err := COSUpload(file, filename)
+func COSUploadWithCDN(file multipart.File, filename string, fileType string) (string, error) {
+    fileUri, err := COSUpload(file, filename, fileType)
     if err != nil {
         return "", err
     }

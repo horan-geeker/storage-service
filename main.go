@@ -11,6 +11,10 @@ func main() {
     http.HandleFunc("/v1/cos/upload", controllers.COSUpload)
     http.HandleFunc("/v1/cos/upload/secure", controllers.COSUploadSecure)
     http.HandleFunc("/v1/cos/upload/cdn", controllers.COSUploadWithCDN)
+    // tencent cos download url
+    http.HandleFunc("/v1/cos/upload/url", controllers.COSUploadByUrl)
+    http.HandleFunc("/v1/cos/upload/url/cdn", controllers.COSUploadByUrlWithCDN)
+
     // aliyun oss storage
     http.HandleFunc("/v1/oss/upload", controllers.OSSUpload)
     http.HandleFunc("/v1/oss/upload/secure", controllers.OSSUploadSecure)
